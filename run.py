@@ -11,7 +11,7 @@ app = Flask(__name__)
 def index():
     return ':)'
 
-@app.route('/whois/plain/<domain>', methods=['GET'])
+@app.route('/plain/<domain>', methods=['GET'])
 def plain(domain):
     domain = domain.strip()
     data = whois(domain)
@@ -21,24 +21,17 @@ def plain(domain):
 def whois(domain):
     parts = tldextract.extract(domain)
     if(parts.suffix == 'ir'):
-        command = "/usr/bin/whois %s | grep -v '%' | sed '/^$/N;/^\n$/D' | sed '1{/^$/d}' | sed '${/^$/d}'" % domain
+        command = u"/usr/bin/whois %s | grep -v '^%%'" % domain
     else:
-        command = "/usr/bin/whois %s | sed '/>>>/,$d' | sed 's/^[ \t]*//;s/[ \t]*$//'" % domain
+        command = u"/usr/bin/whois %s | sed '/>>>/,$d'" % domain
 
     try:
         result = subprocess.check_output([command], shell=True)
     except subprocess.CalledProcessError as e:
         return "An error occurred while trying to exec command."
 
-    return result
-
-def get_now():
-    return strftime("%Y-%m-%d %H:%M:%S", localtime())
-
-def my_print(text):
-    sys.stdout.write(str(text))
-    sys.stdout.flush()
+    return result.strip()
 
 ########
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True,host='0.0.0.0',port=8082)
