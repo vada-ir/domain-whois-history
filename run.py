@@ -1,12 +1,18 @@
 # coding: utf-8
+
 from flask import Flask
 from flask import request
 import subprocess
 import sys
 import tldextract
 
+######### Bootstrap
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
 app = Flask(__name__)
 
+######### Routes
 @app.route('/')
 def index():
     return ':)'
@@ -21,9 +27,9 @@ def plain(domain):
 def whois(domain):
     parts = tldextract.extract(domain)
     if(parts.suffix == 'ir'):
-        command = u"/usr/bin/whois %s | grep -v '^%%'" % domain
+        command = "/usr/bin/whois %s | grep -v '^%%'" % domain
     else:
-        command = u"/usr/bin/whois %s | sed '/>>>/,$d'" % domain
+        command = "/usr/bin/whois %s | sed '/>>>/,$d'" % domain
 
     try:
         result = subprocess.check_output([command], shell=True)
@@ -34,4 +40,4 @@ def whois(domain):
 
 ########
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0',port=8082)
+    app.run(debug=False,host='0.0.0.0',port=8082)
