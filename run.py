@@ -29,7 +29,7 @@ def whois(domain):
     if(parts.suffix == 'ir'):
         command = "/usr/bin/whois %s | grep -v '^%%'" % domain
     else:
-        command = "/usr/bin/whois %s | sed '/>>>/,$d'" % domain
+        command = "/usr/bin/whois %s | sed '/>>>/,$d' | sed 's/^[ \t]*//;s/[ \t]*$//'" % domain
 
     try:
         result = subprocess.check_output([command], shell=True)
