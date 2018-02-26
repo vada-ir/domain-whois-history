@@ -2,9 +2,11 @@
 
 from flask import Flask
 from flask import request
-import subprocess as subprocess
 import sys
 import tldextract
+import os
+import signal
+from subprocess32 import Popen, PIPE, TimeoutExpired
 
 ######### Bootstrap
 reload(sys)
@@ -29,17 +31,21 @@ def plain(domain):
 
 def whois(domain):
     parts = tldextract.extract(domain)
+
     if(parts.suffix == 'ir'):
-        command = "/usr/bin/whois -h 192.168.2.27 %s | grep -v '^%%'" % domain
+        command = "/usr/bin/whois %s | grep -v '^%%'" % domain
     else:
-        command = "/usr/bin/whois -h 192.168.2.27 %s | sed '/>>>/,$d' | sed 's/^[ \t]*//;s/[ \t]*$//'" % domain
+        command = "/usr/bin/whois %s | sed '/>>>/,$d' | sed 's/^[ \t]*//;s/[ \t]*$//'" % domain
 
-    try:
-        result = subprocess.check_output(command, shell=True)
-    except subprocess.CalledProcessError as e:
-        return "An error occurred while trying to exec command."
 
-    return result.strip()
+    with Popen(command, shell=True, stdout=PIPE, preexec_fn=os.setsid) as process:
+        try:
+            output = process.communicate(timeout=3)[0]
+        except TimeoutExpired:
+            os.killpg(process.pid, signal.SIGINT)
+            output = process.communicate()[0]
+
+    return output.strip()
 
 ########
 if __name__ == '__main__':
