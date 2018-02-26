@@ -2,7 +2,7 @@
 
 from flask import Flask
 from flask import request
-import subprocess
+import subprocess as subprocess
 import sys
 import tldextract
 
@@ -22,17 +22,20 @@ def plain(domain):
     domain = domain.strip()
     data = whois(domain)
 
+    if not data:
+        return ("Couldn't get whois data! :(", 504)
+
     return (data, 200)
 
 def whois(domain):
     parts = tldextract.extract(domain)
     if(parts.suffix == 'ir'):
-        command = "/usr/bin/whois %s | grep -v '^%%'" % domain
+        command = "/usr/bin/whois -h 192.168.2.27 %s | grep -v '^%%'" % domain
     else:
-        command = "/usr/bin/whois %s | sed '/>>>/,$d' | sed 's/^[ \t]*//;s/[ \t]*$//'" % domain
+        command = "/usr/bin/whois -h 192.168.2.27 %s | sed '/>>>/,$d' | sed 's/^[ \t]*//;s/[ \t]*$//'" % domain
 
     try:
-        result = subprocess.check_output([command], shell=True)
+        result = subprocess.check_output(command, shell=True)
     except subprocess.CalledProcessError as e:
         return "An error occurred while trying to exec command."
 
