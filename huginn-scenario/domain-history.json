@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "name": "Domain History",
+  "description": "No description provided",
+  "source_url": false,
+  "guid": "397d6f54795edf12c5fcbdd328df474f",
+  "tag_fg_color": "#ffffff",
+  "tag_bg_color": "#ff8225",
+  "icon": "cloud",
+  "exported_at": "2018-03-04T16:13:29Z",
+  "agents": [
+    {
+      "type": "Agents::PostAgent",
+      "name": "TG sendMessage",
+      "disabled": false,
+      "guid": "2cba773a3ed31fb67cb661818dafda60",
+      "options": {
+        "post_url": "https://api.telegram.org/bot{% credential tg_bot_api_key %}/sendMessage",
+        "expected_receive_period_in_days": "10",
+        "content_type": "json",
+        "method": "post",
+        "payload": {
+          "chat_id": "{{ chat_id }}",
+          "text": "{{ text }}",
+          "parse_mode": "{{ parse_mode }}",
+          "disable_web_page_preview": "{{ preview | default: true }}"
+        },
+        "headers": {
+          "Content-type": "application/x-www-form-urlencoded",
+          "charset": "UTF-8"
+        },
+        "emit_events": "true",
+        "no_merge": "true"
+      },
+      "schedule": "never",
+      "keep_events_for": 21600,
+      "propagate_immediately": true
+    },
+    {
+      "type": "Agents::WebsiteAgent",
+      "name": "Get Domain CSV",
+      "disabled": false,
+      "guid": "411ab5cad661ff51e79a74512180d86a",
+      "options": {
+        "expected_update_period_in_days": "2",
+        "url": "{% credential domain_csv_uri %}",
+        "type": "text",
+        "mode": "all",
+        "extract": {
+          "data": {
+            "regexp": "\\A(?m:.*)\\z",
+            "index": "0"
+          }
+        }
+      },
+      "schedule": "every_1h",
+      "keep_events_for": 259200,
+      "propagate_immediately": false
+    },
+    {
+      "type": "Agents::EventFormattingAgent",
+      "name": "Domain Change Alert",
+      "disabled": false,
+      "guid": "6a187c667e9e1bf577b1cb89e5aa74cb",
+      "options": {
+        "instructions": {
+          "text": "*Domain*: {{data.domain}}{% line_break %}{% line_break %}*Changes*:{% line_break %}```{% line_break %}{{diff_text}}```{% line_break %}{% line_break %}🤔",
+          "chat_id": "{% credential tg_domain_alert_channel %}",
+          "parse_mode": "Markdown"
+        },
+        "mode": "clean"
+      },
+      "keep_events_for": 2592000,
+      "propagate_immediately": true
+    },
+    {
+      "type": "Agents::CsvAgent",
+      "name": "Parse Domain List",
+      "disabled": false,
+      "guid": "7f3047e4b03c8034498b00d87e3f7a06",
+      "options": {
+        "mode": "parse",
+        "separator": ",",
+        "data_key": "data",
+        "with_header_radio": "true",
+        "with_header": "true",
+        "use_fields": "",
+        "output": "event_per_row",
+        "data_path": "$.data"
+      },
+      "keep_events_for": 172800,
+      "propagate_immediately": false
+    },
+    {
+      "type": "Agents::JavaScriptAgent",
+      "name": "Domain Change Differ",
+      "disabled": false,
+      "guid": "866e887d465dc41f018a9dba318e8a70",
+      "options": {
+        "language": "JavaScript",
+        "code": "diffText = function(alt, neu){\r\n  var result = {}, \r\n      alt_arr = [],\r\n      neu_arr = [],\r\n      diff = {'removed': [], 'added': []},\r\n      text = '';\r\n  if(alt === neu){\r\n    return false;\r\n  }else{\r\n    alt_arr = alt.split('\\n');\r\n    neu_arr = neu.split('\\n');\r\n    var _len = Math.max(alt_arr.length, neu_arr.length);\r\n    for(var j=0;j<_len;j++){\r\n      if(alt_arr[j] !== neu_arr[j]){\r\n        if(alt_arr[j] !== undefined & neu_arr.indexOf(alt_arr[j]) === -1){\r\n          diff.removed.push(alt_arr[j]);\r\n        }\r\n        if(neu_arr[j] !== undefined & alt_arr.indexOf(neu_arr[j]) === -1){\r\n          diff.added.push(neu_arr[j]);\r\n        }\r\n      }\r\n    }\r\n    \r\n    return diff;\r\n  }\r\n}\r\n\r\nAgent.receive = function() {\r\n  var events = this.incomingEvents();\r\n\r\n  for(var i = 0; i < events.length; i++) {\r\n    if(events[i].payload.whois === undefined || events[i].payload.domain === undefined){\r\n      this.error('Empty data!');\r\n      continue;\r\n    }\r\n    \r\n    var data,\r\n        message = '',\r\n        _memory = this.memory(events[i].payload.domain);\r\n    if(_memory === undefined){\r\n      this.memory(events[i].payload.domain, events[i].payload.whois);\r\n      continue;\r\n    }\r\n    \r\n    data = diffText(_memory, events[i].payload.whois);\r\n    if(data){\r\n      message = '- ' + data.removed.join('\\n- ') + '\\n\\n+ ' + data.added.join('\\n+ ');\r\n      this.createEvent({ 'diff_obj': data, 'diff_text': message, 'data': events[i].payload });\r\n    }\r\n  }\r\n}",
+        "expected_receive_period_in_days": "2",
+        "expected_update_period_in_days": "2"
+      },
+      "schedule": "never",
+      "keep_events_for": 7776000,
+      "propagate_immediately": false
+    },
+    {
+      "type": "Agents::WebsiteAgent",
+      "name": "Get Whois Data",
+      "disabled": false,
+      "guid": "9d9e383300927331fd2145d48153ed04",
+      "options": {
+        "expected_update_period_in_days": "2",
+        "url": "http://{% credential http_api_ip_port %}/plain/{{ data.Domain }}",
+        "type": "text",
+        "mode": "on_change",
+        "extract": {
+          "whois": {
+            "regexp": "\\A(?m:.*)\\z",
+            "index": "0"
+          }
+        },
+        "template": {
+          "domain": "{{ data.Domain }}",
+          "list_data": "{{ data | as_object }}"
+        }
+      },
+      "schedule": "never",
+      "keep_events_for": 7776000,
+      "propagate_immediately": true
+    },
+    {
+      "type": "Agents::PostAgent",
+      "name": "Domain Change to ELK",
+      "disabled": false,
+      "guid": "e0ae7f73c1886aa9a23480067547b4e0",
+      "options": {
+        "post_url": "{% credential logstash_uri %}",
+        "expected_receive_period_in_days": "3",
+        "content_type": "json",
+        "method": "post",
+        "payload": {
+          "domain": "{{ data.domain }}",
+          "list_data": "{{ data.list_data | json }}",
+          "whois": "{{ data.whois }}",
+          "diff_text": "{{ diff_text }}"
+        },
+        "emit_events": "true",
+        "no_merge": "true",
+        "output_mode": "clean"
+      },
+      "schedule": "never",
+      "keep_events_for": 2592000,
+      "propagate_immediately": false
+    }
+  ],
+  "links": [
+    {
+      "source": 1,
+      "receiver": 3
+    },
+    {
+      "source": 2,
+      "receiver": 0
+    },
+    {
+      "source": 3,
+      "receiver": 5
+    },
+    {
+      "source": 4,
+      "receiver": 2
+    },
+    {
+      "source": 4,
+      "receiver": 6
+    },
+    {
+      "source": 5,
+      "receiver": 4
+    }
+  ],
+  "control_links": [
+
+  ]
+}
